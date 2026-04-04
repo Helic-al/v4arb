@@ -16,11 +16,12 @@ contract DeltaNeutralHook is BaseHook {
 
     address public owner;
     mapping(PoolId => uint160) public lastPrices;
+    mapping(PoolId => uint256) public lastUpdateBlock;
 
     uint24 public defaultFee = 300;    // 0.03%
     uint24 public highFee = 30000;     // 5%
     uint256 public whaleImpactThreshold = 2; // 流動性の2%以下の注文は通常手数料で通す
-    uint256 public k = 78;
+    uint256 public k = 780;
     uint256 public volatilityDivisor = 200;
     
 
@@ -107,7 +108,6 @@ contract DeltaNeutralHook is BaseHook {
         // ==========================================
         PoolId poolId = key.toId();
         (uint160 currentSqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
-        uint128 liquidity = poolManager.getLiquidity(poolId);
         uint160 lastSqrtPriceX96 = lastPrices[poolId];
 
         uint24 newFee = defaultFee;
@@ -117,21 +117,25 @@ contract DeltaNeutralHook is BaseHook {
 
         if (lastSqrtPriceX96 == 0) {
             lastPrices[poolId] = currentSqrtPriceX96;
-        } else {
-            uint256 diff = currentSqrtPriceX96 > lastSqrtPriceX96
+            return (BaseHook.beforeSwap.selector, 
+                    BeforeSwapDeltaLibrary.ZERO_DELTA,
+                    defaultFee | LPFeeLibrary.OVERRIDE_FEE_FLAG);
+        } 
+
+        
+        uint256 diff = currentSqrtPriceX96 > lastSqrtPriceX96
                 ? currentSqrtPriceX96 - lastSqrtPriceX96
                 : lastSqrtPriceX96 - currentSqrtPriceX96;
 
-            if (diff > threshold) {
+        if (diff > threshold) {
                 newFee = highFee;
-                highFeeTriggered = true;
                 emit MarketVolatile(poolId, diff, newFee);
+                return (BaseHook.beforeSwap.selector,
+                        BeforeSwapDeltaLibrary.ZERO_DELTA, 
+                        newFee | LPFeeLibrary.OVERRIDE_FEE_FLAG);
             }
 
-            if (diff > threshold || highFeeTriggered) {
-                lastPrices[poolId] = currentSqrtPriceX96;
-            }
-        }
+        uint128 liquidity = poolManager.getLiquidity(poolId);
 
         // スワップ量の絶対値
         if (liquidity > 0) {
@@ -139,32 +143,38 @@ contract DeltaNeutralHook is BaseHook {
                 ? uint256(params.amountSpecified)
                 : uint256(-params.amountSpecified);
 
-            // 流動性に換算
-            uint256 liquidityImpact;
+            // 現在のプール内の概算トークン料を取得
+            uint256 virtualInventory;
             if (params.zeroForOne) {
-                liquidityImpact = (absAmount * uint256(currentSqrtPriceX96)) >> 96;
+                virtualInventory = (uint256(liquidity) * uint256(currentSqrtPriceX96)) >>96; 
             } else {
-                liquidityImpact = (absAmount << 96) / uint256(currentSqrtPriceX96);
+                virtualInventory = (uint256(liquidity) << 96) / uint256(currentSqrtPriceX96);
             }
 
             // whaleImpactThresholdを超えていたら段階的に手数料を高く設定
             // TODO: ここの手数料をステップではなく二次近似したシグモイドで実装
-            uint256 impactPercentage = (liquidityImpact * 100) / uint256(liquidity);
+            uint256 impactPercentage = (absAmount * 100) / virtualInventory;
 
             if (impactPercentage  >= whaleImpactThreshold) {
-              newFee = defaultFee + k*(impactPercentage - whaleImpactThreshold)^2;
-              if (newFee > highFee) {
-                newFee = highFee;
-              }
+              uint256 excess = impactPercentage - whaleImpactThreshold;
+              uint256 calcFee = uint256(defaultFee) + (k * excess * excess);
+              newFee = calcFee > uint256(highFee) ? highFee : uint24(calcFee);
               emit MarketVolatile(poolId, 0, newFee);
-            } 
+              return (BaseHook.beforeSwap.selector,
+                      BeforeSwapDeltaLibrary.ZERO_DELTA,
+                      newFee | LPFeeLibrary.OVERRIDE_FEE_FLAG);
+            }
 
+            // ここまでreturnなく到達した場合にのみlastPriceを保存する場合がある
+            if (block.number > lastUpdateBlock[poolId] + 10) {
+              lastPrices[poolId] = currentSqrtPriceX96;
+              lastUpdateBlock[poolId] = block.number;
+            }
 
-        return (
-            BaseHook.beforeSwap.selector,
-            BeforeSwapDeltaLibrary.ZERO_DELTA,
-            newFee | LPFeeLibrary.OVERRIDE_FEE_FLAG
-        );
+            return (BaseHook.beforeSwap.selector,
+                    BeforeSwapDeltaLibrary.ZERO_DELTA, 
+                    defaultFee | LPFeeLibrary.OVERRIDE_FEE_FLAG);
+        }
     }
 
     // ==========================================
