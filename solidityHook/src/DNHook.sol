@@ -17,16 +17,18 @@ contract DeltaNeutralHook is BaseHook {
     address public owner;
     mapping(PoolId => uint160) public lastPrices;
 
-    uint24 public defaultFee = 500;    // 0.05%
-    uint24 public highFee = 50000;     // 5%
-    uint256 public whaleImpactThreshold = 4;
+    uint24 public defaultFee = 300;    // 0.03%
+    uint24 public highFee = 30000;     // 5%
+    uint256 public whaleImpactThreshold = 2; // 流動性の2%以下の注文は通常手数料で通す
+    uint256 public k = 78;
     uint256 public volatilityDivisor = 200;
+    
 
     // ==========================================
     // ★ 追加機能: 初期保護モード (Launch Protection)
     // ==========================================
     bool public launchProtectionEnabled = true; // デプロイ直後は自動的にON
-    uint24 public launchFee = 100000;           // 10% (ボットを確実に赤字にする超高額手数料)
+    uint24 public launchFee = 30000;           // 3% (ボットを確実に赤字にする超高額手数料)
 
     event MarketVolatile(PoolId indexed poolId, uint256 volatilityDiff, uint24 appliedFee);
     event ProtectionDisabled();
@@ -81,6 +83,7 @@ contract DeltaNeutralHook is BaseHook {
         });
     }
 
+    // スワップ前に注文量などに応じて手数料を調整する
     function _beforeSwap(
         address,
         PoolKey calldata key,
@@ -89,7 +92,7 @@ contract DeltaNeutralHook is BaseHook {
     ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
         
         // ==========================================
-        // ★ 保護モードONの場合は、無条件で10%の手数料を適用
+        // ★ 保護モードONの場合は、無条件で3%の手数料を適用
         // ==========================================
         if (launchProtectionEnabled) {
             return (
@@ -109,27 +112,7 @@ contract DeltaNeutralHook is BaseHook {
 
         uint24 newFee = defaultFee;
         bool highFeeTriggered = false;
-
-        if (liquidity > 0) {
-            uint256 absAmount = params.amountSpecified > 0
-                ? uint256(params.amountSpecified)
-                : uint256(-params.amountSpecified);
-
-            uint256 liquidityImpact;
-            if (params.zeroForOne) {
-                liquidityImpact = (absAmount * uint256(currentSqrtPriceX96)) >> 96;
-            } else {
-                liquidityImpact = (absAmount << 96) / uint256(currentSqrtPriceX96);
-            }
-
-            uint256 impactPercentage = (liquidityImpact * 100) / uint256(liquidity);
-            if (impactPercentage >= whaleImpactThreshold) {
-                newFee = highFee;
-                highFeeTriggered = true;
-                emit MarketVolatile(poolId, 0, newFee);
-            }
-        }
-
+ 
         uint256 threshold = lastSqrtPriceX96 / volatilityDivisor;
 
         if (lastSqrtPriceX96 == 0) {
@@ -139,7 +122,7 @@ contract DeltaNeutralHook is BaseHook {
                 ? currentSqrtPriceX96 - lastSqrtPriceX96
                 : lastSqrtPriceX96 - currentSqrtPriceX96;
 
-            if (!highFeeTriggered && diff > threshold) {
+            if (diff > threshold) {
                 newFee = highFee;
                 highFeeTriggered = true;
                 emit MarketVolatile(poolId, diff, newFee);
@@ -149,6 +132,33 @@ contract DeltaNeutralHook is BaseHook {
                 lastPrices[poolId] = currentSqrtPriceX96;
             }
         }
+
+        // スワップ量の絶対値
+        if (liquidity > 0) {
+            uint256 absAmount = params.amountSpecified > 0
+                ? uint256(params.amountSpecified)
+                : uint256(-params.amountSpecified);
+
+            // 流動性に換算
+            uint256 liquidityImpact;
+            if (params.zeroForOne) {
+                liquidityImpact = (absAmount * uint256(currentSqrtPriceX96)) >> 96;
+            } else {
+                liquidityImpact = (absAmount << 96) / uint256(currentSqrtPriceX96);
+            }
+
+            // whaleImpactThresholdを超えていたら段階的に手数料を高く設定
+            // TODO: ここの手数料をステップではなく二次近似したシグモイドで実装
+            uint256 impactPercentage = (liquidityImpact * 100) / uint256(liquidity);
+
+            if (impactPercentage  >= whaleImpactThreshold) {
+              newFee = defaultFee + k*(impactPercentage - whaleImpactThreshold)^2;
+              if (newFee > highFee) {
+                newFee = highFee;
+              }
+              emit MarketVolatile(poolId, 0, newFee);
+            } 
+
 
         return (
             BaseHook.beforeSwap.selector,
