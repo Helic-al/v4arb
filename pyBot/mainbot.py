@@ -81,7 +81,7 @@ LP_ROUTER_ADDRESS = os.environ.get(
 
 # Hook アドレス
 HOOK_ADDRESS = os.environ.get(
-    "HOOK_ADDRESS", "0xEbB6C7CAc8824970e7BA98d63e503267132Ac080"
+    "HOOK_ADDRESS", "0x78e0cB64787Af65Bf2DaeF61ea41f723282f4080"
 )
 
 # PoolKey を構成する要素
@@ -215,8 +215,8 @@ def sendDiscordReport(equity_data, liquidity):
                     "inline": True,
                 },
                 {
-                    "name": "📈 ETH Price",
-                    "value": f"${equity_data['eth_price']:.2f}",
+                    "name": "📈 ARB Price",
+                    "value": f"${equity_data['eth_price']:.5f}",
                     "inline": True,
                 },
                 {
@@ -241,17 +241,17 @@ def sendDiscordReport(equity_data, liquidity):
                 },
                 {
                     "name": "📐 LP Delta",
-                    "value": f"{equity_data.get('lp_delta', 0):.4f} ETH",
+                    "value": f"{equity_data.get('lp_delta', 0)} ARB",
                     "inline": True,
                 },
                 {
                     "name": "🔄 Net Delta",
-                    "value": f"{equity_data.get('net_delta', 0):.4f} ETH",
+                    "value": f"{equity_data.get('net_delta', 0):.4f} ARB",
                     "inline": True,
                 },
                 {
                     "name": "📏 Raw Net Delta",
-                    "value": f"{equity_data.get('raw_net_delta', 0):.4f} ETH",
+                    "value": f"{equity_data.get('raw_net_delta', 0):.4f} ARB",
                     "inline": True,
                 },
                 {

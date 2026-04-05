@@ -139,12 +139,12 @@ contract Reposition is Script {
         PoolModifyLiquidityTest lpRouter = PoolModifyLiquidityTest(OLD_ROUTER);
 
         // // 本番用
-        // uint256 amount0Desired = IERC20(ARB_ADDRESS).balanceOf(myWallet);
-        // uint256 amount1Desired = IERC20(USDC_ADDRESS).balanceOf(myWallet);
+        uint256 amount0Desired = IERC20(ARB_ADDRESS).balanceOf(myWallet);
+        uint256 amount1Desired = IERC20(USDC_ADDRESS).balanceOf(myWallet);
 
         // テスト用
-        uint256 amount0Desired = 100 ether; // ether = 10e18
-        uint256 amount1Desired = 9 * 10**6;
+        // uint256 amount0Desired = 0.001 ether;
+        // uint256 amount1Desired = 3 * 10**6;
 
         PoolId poolId = key.toId();
         (uint160 actualSqrtPriceX96, , , ) = IPoolManager(POOL_MANAGER).getSlot0(poolId);
