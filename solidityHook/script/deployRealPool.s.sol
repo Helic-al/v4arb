@@ -29,8 +29,8 @@ contract DeployRealPool is Script {
     // 20260223 10:53 フック更新
     address constant HOOK_ADDRESS = 0x351d40e706339c7D7588B6F915d62D42510fC080; 
 
-    address constant WETH_ADDRESS = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant USDC_ADDRESS = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address constant ARB_ADDRESS = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    address constant USDC_ADDRESS = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
     int24 constant TICK_SPACING = 60;
 
@@ -43,7 +43,7 @@ contract DeployRealPool is Script {
     function run() external {
         vm.startBroadcast();
 
-        Currency token0 = Currency.wrap(WETH_ADDRESS);
+        Currency token0 = Currency.wrap(ARB_ADDRESS);
         Currency token1 = Currency.wrap(USDC_ADDRESS);
 
         // IPoolManager manager = IPoolManager(POOL_MANAGER);
@@ -55,7 +55,7 @@ contract DeployRealPool is Script {
         PoolModifyLiquidityTest lpRouter = PoolModifyLiquidityTest(OLD_ROUTER);
         console.log("Liquidity Router deployed at:", address(lpRouter));
 
-        IERC20(WETH_ADDRESS).approve(address(lpRouter), type(uint256).max);
+        IERC20(ARB_ADDRESS).approve(address(lpRouter), type(uint256).max);
         IERC20(USDC_ADDRESS).approve(address(lpRouter), type(uint256).max);
 
         PoolKey memory key = PoolKey({

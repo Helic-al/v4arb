@@ -111,7 +111,6 @@ contract DeltaNeutralHook is BaseHook {
         uint160 lastSqrtPriceX96 = lastPrices[poolId];
 
         uint24 newFee = defaultFee;
-        bool highFeeTriggered = false;
  
         uint256 threshold = lastSqrtPriceX96 / volatilityDivisor;
 
@@ -137,8 +136,13 @@ contract DeltaNeutralHook is BaseHook {
 
         uint128 liquidity = poolManager.getLiquidity(poolId);
 
-        // スワップ量の絶対値
-        if (liquidity > 0) {
+        if (liquidity == 0) {
+            return (
+                BaseHook.beforeSwap.selector,
+                BeforeSwapDeltaLibrary.ZERO_DELTA,
+                defaultFee | LPFeeLibrary.OVERRIDE_FEE_FLAG
+            );
+        } else {
             uint256 absAmount = params.amountSpecified > 0
                 ? uint256(params.amountSpecified)
                 : uint256(-params.amountSpecified);

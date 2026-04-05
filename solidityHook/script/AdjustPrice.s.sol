@@ -23,8 +23,8 @@ contract AdjustPrice is Script {
     // ★ あなたのHookアドレス
     address constant HOOK_ADDRESS = 0xF55DD6e6be1acb02E05c24dE345a13f6Efcd0080; 
     
-    address constant WETH_ADDRESS = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant USDC_ADDRESS = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address constant ARB_ADDRESS = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    address constant USDC_ADDRESS = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
     int24 constant TICK_SPACING = 60;
     uint24 constant LP_FEE = LPFeeLibrary.DYNAMIC_FEE_FLAG; 
@@ -32,7 +32,7 @@ contract AdjustPrice is Script {
     function run() external {
         vm.startBroadcast();
 
-        Currency token0 = Currency.wrap(WETH_ADDRESS);
+        Currency token0 = Currency.wrap(ARB_ADDRESS);
         Currency token1 = Currency.wrap(USDC_ADDRESS);
 
         PoolKey memory key = PoolKey({
@@ -53,7 +53,7 @@ contract AdjustPrice is Script {
         
         IERC20(USDC_ADDRESS).approve(address(swapRouter), type(uint256).max);
 
-        // false = USDCを払ってWETHをもらう (価格が上がる)
+        // false = USDCを払ってARBをもらう (価格が上がる)
         bool zeroForOne = false; 
 
 
@@ -66,18 +66,18 @@ contract AdjustPrice is Script {
         
         // // --------------------------------------------------------
         // // 逆注文を行う場合
-        // // 1. 調整量: WETHの単位 (ether = 1e18) で指定します
-        // // 例: 0.001 WETH をスワップする場合
+        // // 1. 調整量: ARB単位 (ether = 1e18) で指定します
+        // // 例: 0.001 ARB をスワップする場合
         // // --------------------------------------------------------
         // uint256 swapAmount = 0.05 ether; 
         
         // // --------------------------------------------------------
-        // // 2. Approve: 支払うトークンである WETH を許可します
+        // // 2. Approve: 支払うトークンである ARB を許可します
         // // --------------------------------------------------------
-        // IERC20(WETH_ADDRESS).approve(address(swapRouter), type(uint256).max);
+        // IERC20(ARB_ADDRESS).approve(address(swapRouter), type(uint256).max);
 
         // // --------------------------------------------------------
-        // // 3. 方向フラグ: true = WETH(Token0)を払ってUSDC(Token1)をもらう (価格が下がる)
+        // // 3. 方向フラグ: true = ARB(Token0)を払ってUSDC(Token1)をもらう (価格が下がる)
         // // --------------------------------------------------------
         // bool zeroForOne = true;
 
@@ -97,7 +97,7 @@ contract AdjustPrice is Script {
             settleUsingBurn: false
         });
 
-        console.log("Adjusting Price: Swapping USDC for WETH...");
+        console.log("Adjusting Price: Swapping USDC for ARB...");
         
         swapRouter.swap(
             key,
