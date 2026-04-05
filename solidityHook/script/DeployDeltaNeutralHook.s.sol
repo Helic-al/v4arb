@@ -17,7 +17,7 @@ import {HookMiner} from "../src/HookMiner.sol";
 contract DeployDeltaNeutralHook is Script {
     function run() public {
         // ---------------------------------------------------------
-        // 1. 設定: PoolManagerのアドレスを入力sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssしてください
+        // 1. 設定: PoolManagerのアドレスを入力
         // ---------------------------------------------------------
         address poolManagerAddress = 0xe54aCE66bD482c5781c9F69f89273586975FFcAC; // 例: 取得済みのアドレスに置換
 
